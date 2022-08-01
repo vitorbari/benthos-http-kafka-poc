@@ -11,7 +11,7 @@ input:
 pipeline:
   processors:
     - bloblang: |
-        meta status_code = "202"
+        meta status_code = "200"
 
         root.auth = meta("Authorization")
         # matches = root.auth.re_match("^Bearer ")

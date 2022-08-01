@@ -1,0 +1,39 @@
+input:
+  http_server:
+    path: /post
+    allowed_verbs:
+      - POST
+    sync_response:
+      status: '${! meta("status_code") }'
+      headers:
+        Content-Type: application/octet-stream
+
+pipeline:
+  processors:
+    - bloblang: |
+        meta status_code = "202"
+
+        root.auth = meta("Authorization")
+        # matches = root.auth.re_match("^Bearer ")
+        root.jwt = root.auth.slice(7)
+        root.jwt_parts = root.jwt.split(".")
+        root.jwt_payload = "%s==".format(root.jwt_parts.1) # decode expects the new-line
+        root = root.jwt_payload.decode("base64")
+    - catch:
+        - bloblang: |
+            meta status_code = "400"
+
+            root.error = error()
+
+output:
+  switch:
+    cases:
+      - check: '!this.exists("error")'
+        output:
+          kafka:
+            addresses: ["kafka:9092"]
+            topic: "users"
+        continue: true
+
+      - output:
+          sync_response: {}
